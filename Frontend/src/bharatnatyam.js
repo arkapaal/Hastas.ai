@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Upload, BookOpen, Microscope, Video, Home, Bed, GraduationCap, Info, Play, Pause, RotateCcw, Zap, Download } from 'lucide-react';
 import logo from './logo.png';
+import image from './bharatnatyam.png';
+
 export default function BharatnatyamMudraWebsite() {
   const [currentPage, setCurrentPage] = useState('home');
   const [uploadedPhoto, setUploadedPhoto] = useState(null);
@@ -144,7 +146,7 @@ export default function BharatnatyamMudraWebsite() {
   return (
     <div style={{ backgroundColor: '#270446ff', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif' }}>
       {/* Header */}
-      <header style={{ backgroundColor: '#1d003aff', padding: '20px', color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+      <header style={{ backgroundColor: ' #1d003aff', padding: '20px', color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
         <div style={{ width: '300px', height: '200px', border: '1px solid black' }}>
           <img
             src={logo}
@@ -213,7 +215,14 @@ export default function BharatnatyamMudraWebsite() {
                   justifyContent: 'center',
                   fontSize: '80px',
                 }}>
-                  💃
+                <img
+                  src={image}
+                  alt="bharatnatyam dancer"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover', // 'cover' or 'contain'
+                  }}/>
                 </div>
                 <p style={{ marginTop: '15px', color: '#666' }}>Watch the graceful movements of classical Bharatnatyam dance</p>
               </div>
