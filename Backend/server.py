@@ -6,172 +6,104 @@ import joblib
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import os
 from flask_cors import CORS
-import traceback
 
-app = Flask(__name__)
+app = Flask(_name_)
+CORS(app) 
 
-# Configure CORS for file uploads
-CORS(app, resources={
-    r"/predict": {
-        "origins": "*",
-        "methods": ["POST"],
-        "allow_headers": ["Content-Type"]
-    }
-})
-
-# Set max file size to 50MB
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
-
-# Create uploads directory if it doesn't exist
-os.makedirs("uploads", exist_ok=True)
-
-# Load model and label encoder with error handling
-print("\n" + "="*60)
-print("INITIALIZING FLASK SERVER")
-print("="*60)
+# Load model and label encoder
 print("Loading model and label encoder...")
-
-try:
-    if not os.path.exists("hasta_mudra_classifier.h5"):
-        raise FileNotFoundError("hasta_mudra_classifier.h5 not found")
-    if not os.path.exists("label_encoder.pkl"):
-        raise FileNotFoundError("label_encoder.pkl not found")
-    
-    model = load_model("hasta_mudra_classifier.h5")
-    le = joblib.load("label_encoder.pkl")
-    print("✓ Model loaded successfully")
-    print("✓ Label encoder loaded successfully")
-    MODELS_LOADED = True
-    
-except FileNotFoundError as e:
-    print(f"✗ ERROR: {e}")
-    print("Make sure these files exist in the same directory as this script:")
-    print("  - hasta_mudra_classifier.h5")
-    print("  - label_encoder.pkl")
-    MODELS_LOADED = False
-    
-except Exception as e:
-    print(f"✗ ERROR loading models: {e}")
-    traceback.print_exc()
-    MODELS_LOADED = False
-
-print("="*60 + "\n")
+model = load_model("hasta_mudra_classifier.h5")
+le = joblib.load("label_encoder.pkl")
+print("Model and label encoder loaded successfully!")
 
 def predict_mudra(image_path):
-    """Predict mudra from image path"""
-    try:
-        print(f"  → Loading image from: {image_path}")
-        
-        # Load image as grayscale and resize to 48x48
-        img = load_img(image_path, color_mode='grayscale', target_size=(48, 48))
-        img_array = img_to_array(img) / 255.0
-        img_array = np.expand_dims(img_array, axis=0)
-        
-        print(f"  → Image shape: {img_array.shape}")
-        print("  → Running model prediction...")
-        
-        predictions = model.predict(img_array, verbose=0)
-        predicted_class_index = np.argmax(predictions)
-        predicted_label = le.inverse_transform([predicted_class_index])[0]
-        confidence = float(np.max(predictions) * 100)
-        
-        print(f"  → Prediction: {predicted_label} ({confidence:.2f}%)")
-        
-        return str(predicted_label), confidence
-        
-    except Exception as e:
-        print(f"  ✗ Prediction error: {e}")
-        traceback.print_exc()
-        raise
+    print(f"Starting prediction for: {image_path}")
+    img = load_img(image_path, color_mode='grayscale', target_size=(48, 48))
+    img_array = img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
+    
+    print("Running model prediction...")
+    predictions = model.predict(img_array)
+    predicted_class_index = np.argmax(predictions)
+    predicted_label = le.inverse_transform([predicted_class_index])[0]
+    confidence = np.max(predictions) * 100
+    
+    print(f"Prediction complete: {predicted_label} with {confidence:.2f}% confidence")
+    
+    # Convert numpy types to Python native types for JSON serialization
+    return str(predicted_label), float(confidence)
 
-@app.route('/', methods=['GET'])
+@app.route('/')
 def home():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'running',
-        'message': 'Bharatnatyam Mudra Classifier API',
-        'models_loaded': MODELS_LOADED
-    }), 200
+    print("Home route accessed")
+    return "Flask server is running!"
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """Predict mudra from uploaded image"""
-    print("\n" + "="*60)
+    print("\n" + "="*50)
     print("PREDICT ENDPOINT CALLED")
-    print("="*60)
+    print("="*50)
     
-    # Check if models are loaded
-    if not MODELS_LOADED:
-        print("✗ Models not loaded at startup")
-        return jsonify({
-            'error': 'Server not properly initialized. Models not loaded.'
-        }), 500
+    print(f"Request method: {request.method}")
+    print(f"Request files: {request.files}")
+    print(f"Request form: {request.form}")
     
-    # Validate request
     if 'file' not in request.files:
-        print("✗ No file in request")
+        print("ERROR: No file in request")
         return jsonify({'error': 'No file uploaded'}), 400
     
     file = request.files['file']
+    print(f"File received: {file.filename}")
+    print(f"File content type: {file.content_type}")
     
     if file.filename == '':
-        print("✗ Empty filename")
+        print("ERROR: Empty filename")
         return jsonify({'error': 'No file selected'}), 400
-    
-    # Validate file type
-    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
-    if '.' not in file.filename or file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
-        print(f"✗ Invalid file type: {file.filename}")
-        return jsonify({'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif, bmp'}), 400
-    
-    print(f"✓ File received: {file.filename}")
-    print(f"  → Content type: {file.content_type}")
     
     # Save file temporarily
     filepath = os.path.join("uploads", file.filename)
+    os.makedirs("uploads", exist_ok=True)
+    print(f"Saving file to: {filepath}")
+    file.save(filepath)
+    print(f"File saved successfully. Size: {os.path.getsize(filepath)} bytes")
+    
     try:
-        file.save(filepath)
-        file_size = os.path.getsize(filepath)
-        print(f"✓ File saved: {filepath} ({file_size} bytes)")
-        
         # Get prediction
-        print("→ Analyzing image...")
+        print("Calling predict_mudra function...")
         label, confidence = predict_mudra(filepath)
+        
+        # Clean up
+        print(f"Removing temporary file: {filepath}")
+        os.remove(filepath)
         
         result = {
             'mudra': label,
-            'label': label,  # Include both for compatibility
             'confidence': round(confidence, 2)
         }
+        print(f"Returning result: {result}")
+        print("="*50 + "\n")
         
-        print(f"✓ Response: {result}")
-        print("="*60 + "\n")
-        
-        return jsonify(result), 200
+        return jsonify(result)
         
     except Exception as e:
-        error_msg = f'Prediction failed: {str(e)}'
-        print(f"✗ ERROR: {error_msg}")
-        print("="*60 + "\n")
-        return jsonify({'error': error_msg}), 500
-        
-    finally:
-        # Clean up temporary file
+        # Clean up on error
         if os.path.exists(filepath):
-            try:
-                os.remove(filepath)
-                print("  → Temporary file removed")
-            except:
-                pass
+            os.remove(filepath)
+        error_msg = f'Prediction failed: {str(e)}'
+        print(f"ERROR: {error_msg}")
+        print(f"Error type: {type(e)._name_}")
+        import traceback
+        traceback.print_exc()
+        print("="*50 + "\n")
+        return jsonify({'error': error_msg}), 500
 
-if __name__ == "__main__":
-    print("\n" + "="*60)
+if _name_ == "_main_":
+    print("\n" + "="*50)
     print("STARTING FLASK SERVER")
-    print("="*60)
-    print("Server running on: http://127.0.0.1:5000")
-    print("Frontend should connect to: http://127.0.0.1:5000/predict")
-    print("Press CTRL+C to quit")
-    print("="*60 + "\n")
-    
-    # Run server
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    print("="*50)
+    print("Server starting on Render...")
+    print("="*50 + "\n")
+
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
