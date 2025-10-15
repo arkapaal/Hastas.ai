@@ -168,8 +168,8 @@ if __name__ == "__main__":
     print("\n" + "="*60)
     print("STARTING FLASK SERVER")
     print("="*60)
-    print("Server running on: https://hastash-backend.onrender.com/predict")
-    print("Frontend should connect to: https://hastash-backend.onrender.com/predict")
+    print("Server running on: http://127.0.0.1:5000")
+    print("Frontend should connect to: http://127.0.0.1:5000/predict")
     print("Press CTRL+C to quit")
     print("="*60 + "\n")
     
