@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Upload, BookOpen, Microscope, Video, Home, Bed, GraduationCap, Info, Play, Pause, RotateCcw, Zap, Download } from 'lucide-react';
 import logo from './logo.png';
-import image from './bharatnatyam.png';
+import img from './bharat.jpg';
+
 
 export default function BharatnatyamMudraWebsite() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -15,14 +16,18 @@ export default function BharatnatyamMudraWebsite() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoAnalysisResult, setPhotoAnalysisResult] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [recordedChunks, setRecordedChunks] = useState([]);
+  const cameraRef = useRef(null);
+  const streamRef = useRef(null);
 
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Store the actual file object
       setUploadedPhotoFile(file);
       
-      // Create preview URL
       const reader = new FileReader();
       reader.onload = (event) => {
         setUploadedPhoto(event.target.result);
@@ -30,6 +35,13 @@ export default function BharatnatyamMudraWebsite() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const clearPhotoAnalysis = () => {
+    setUploadedPhoto(null);
+    setUploadedPhotoFile(null);
+    setPhotoAnalysisResult(null);
+    setIsAnalyzingPhoto(false);
   };
 
   const analyzePhoto = async () => {
@@ -42,11 +54,9 @@ export default function BharatnatyamMudraWebsite() {
     setPhotoAnalysisResult(null);
 
     try {
-      // Create FormData and append the actual file object
       const formData = new FormData();
       formData.append('file', uploadedPhotoFile);
 
-      // Log for debugging
       console.log('Sending file:', uploadedPhotoFile.name);
       console.log('File size:', uploadedPhotoFile.size);
       console.log('File type:', uploadedPhotoFile.type);
@@ -90,19 +100,83 @@ export default function BharatnatyamMudraWebsite() {
     }
   };
 
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 1280, height: 720 }, 
+        audio: true 
+      });
+      streamRef.current = stream;
+      if (cameraRef.current) {
+        cameraRef.current.srcObject = stream;
+        cameraRef.current.play();
+      }
+      setIsCameraActive(true);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      alert('Could not access camera. Please ensure you have granted camera permissions.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (cameraRef.current) {
+      cameraRef.current.srcObject = null;
+    }
+    setIsCameraActive(false);
+    setIsRecording(false);
+  };
+
+  const startRecording = () => {
+    if (!streamRef.current) return;
+
+    const chunks = [];
+    const recorder = new MediaRecorder(streamRef.current, {
+      mimeType: 'video/webm;codecs=vp8,opus'
+    });
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunks.push(e.data);
+      }
+    };
+
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const videoURL = URL.createObjectURL(blob);
+      setUploadedVideo(videoURL);
+      setAnalysisResults(null);
+      setVideoProgress(0);
+      stopCamera();
+    };
+
+    recorder.start();
+    setMediaRecorder(recorder);
+    setRecordedChunks(chunks);
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      setIsRecording(false);
+    }
+  };
+
   const analyzeVideo = async () => {
     if (!uploadedVideo) return;
     
     setIsAnalyzing(true);
     setAnalysisResults(null);
     
-    // Simulate API call to your model
     for (let i = 0; i <= 100; i += 10) {
       setVideoProgress(i);
       await new Promise(resolve => setTimeout(resolve, 500));
     }
     
-    // Mock analysis results - replace with actual API call
     setAnalysisResults({
       mudrasDetected: [
         { name: 'Pataka Mudra', confidence: 94, frame: '2:15', duration: '1.5s' },
@@ -144,26 +218,35 @@ export default function BharatnatyamMudraWebsite() {
   ];
 
   return (
-    <div style={{ backgroundColor: '#270446ff', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif' }}>
-      {/* Header */}
-      <header style={{ backgroundColor: ' #1d003aff', padding: '20px', color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-        <div style={{ width: '300px', height: '200px', border: '1px solid black' }}>
-          <img
-            src={logo}
-            alt="logohasta"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover', // 'cover' or 'contain'
-            }}
-          />
+    <div style={{ backgroundColor: '#23003fff', minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif' }}>
+      <header style={{ backgroundColor: '#1b0130ff', padding: '20px', color: 'white', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '15px',
+        marginBottom: '10px' 
+        }}>
+        <div style={{ 
+          width: '60px',
+          height: '60px', 
+          backgroundColor: '#B76E79',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '30px',
+          fontWeight: 'bold'
+        }}>
+          <img src={logo} alt="Hastas.ai Logo" style={{ width: '60px', height: '60px' }} />
         </div>
-        <h1 style={{ margin: '0 0 10px 0', fontSize: '32px', fontWeight: 'bold' }}> Hastas.ai</h1>
-        <p style={{ margin: '0', fontSize: '14px', opacity: '0.9' }}>AI-Powered Analysis of Classical Indian Dance Gestures</p>
+        <div>
+            <h1 style={{ margin: '0 0 5px 0', fontSize: '32px', fontWeight: 'bold' }}>Hastas.ai</h1>            
+            <p style={{ margin: '0', fontSize: '14px', opacity: '0.9' }}>AI-Powered Analysis of Classical Indian Dance Gestures</p>
+        </div>
+        </div>
       </header>
 
-      {/* Navigation Bar */}
-      <nav style={{ backgroundColor: '#B76E79', padding: '0 20px', display: 'flex', gap: '20px', flexWrap: 'wrap', borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
+      <nav style={{ backgroundColor: '#dba800ff', padding: '0 20px', display: 'flex', gap: '20px', flexWrap: 'wrap', borderBottom: '2px solid rgba(255,255,255,0.2)' }}>
         {[
           { id: 'home', label: 'Home', icon: Home },
           { id: 'library', label: 'Library', icon: BookOpen },
@@ -196,40 +279,30 @@ export default function BharatnatyamMudraWebsite() {
         ))}
       </nav>
 
-      {/* Main Content */}
       <main style={{ flex: '1', padding: '30px', overflowY: 'auto' }}>
         
         {currentPage === 'home' && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '40px' }}>
-              {/* Dancer Section */}
-              <div style={{ textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.9)', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                <h2 style={{ color: '#B76E79', marginBottom: '15px' }}>Explore</h2>
+            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '40px' }}>
+              <div style={{ textAlign: 'center', backgroundColor: 'rgba(165, 163, 163, 0.9)', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                <h2 style={{fontFamily: 'Georgia, serif', color: '#000000ff', marginBottom: '15px' }}>Explore</h2>
                 <div style={{
                   width: '100%',
-                  height: '300px',
-                  backgroundColor: '#f0f0f0',
+                  height: '400px',
+                  backgroundColor: 'rgba(151, 150, 150, 0.9)',
                   borderRadius: '8px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '80px',
                 }}>
-                <img
-                  src={image}
-                  alt="bharatnatyam dancer"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover', // 'cover' or 'contain'
-                  }}/>
+                  <img src={img} alt="Bharatnatyam Dance" style={{ maxHeight: '100%', maxWidth: '100%', borderRadius: '8px', objectFit: 'cover' }} />
                 </div>
-                <p style={{ marginTop: '15px', color: '#666' }}>Watch the graceful movements of classical Bharatnatyam dance</p>
+                <p style={{ fontWeight: 'bold', fontSize: '24px', marginTop: '15px', color: '#1b1a1aff', fontFamily: 'Georgia, serif' }}>Watch the graceful movements of classical Bharatnatyam dance</p>
               </div>
 
-              {/* Upload Photo Section */}
-              <div style={{ textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.9)', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                <h2 style={{ color: '#B76E79', marginBottom: '15px' }}> Upload & Analyze Photo</h2>
+              <div style={{ textAlign: 'center', backgroundColor: 'rgba(165, 163, 163, 0.9)', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                <h2 style={{fontFamily: 'Georgia, serif',    color:  '#000000ff', marginBottom: '15px' }}>📸 Upload & Analyze Photo</h2>
                 <div style={{
                   width: '100%',
                   height: '300px',
@@ -264,28 +337,50 @@ export default function BharatnatyamMudraWebsite() {
                   />
                 </div>
                 {uploadedPhoto && (
-                  <button
-                    onClick={analyzePhoto}
-                    disabled={isAnalyzingPhoto}
-                    style={{
-                      marginTop: '15px',
-                      width: '100%',
-                      backgroundColor: isAnalyzingPhoto ? '#ccc' : '#B76E79',
-                      color: 'white',
-                      border: 'none',
-                      padding: '12px 16px',
-                      borderRadius: '4px',
-                      cursor: isAnalyzingPhoto ? 'not-allowed' : 'pointer',
-                      fontSize: '16px',
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '10px'
-                    }}
-                  >
-                    <Zap size={20} /> {isAnalyzingPhoto ? 'Analyzing...' : 'Analyze Photo'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                    <button
+                      onClick={analyzePhoto}
+                      disabled={isAnalyzingPhoto}
+                      style={{
+                        flex: 1,
+                        backgroundColor: isAnalyzingPhoto ? '#ccc' : '#B76E79',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 16px',
+                        borderRadius: '4px',
+                        cursor: isAnalyzingPhoto ? 'not-allowed' : 'pointer',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px'
+                      }}
+                    >
+                      <Zap size={20} /> {isAnalyzingPhoto ? 'Analyzing...' : 'Analyze Photo'}
+                    </button>
+                    <button
+                      onClick={clearPhotoAnalysis}
+                      disabled={isAnalyzingPhoto}
+                      style={{
+                        backgroundColor: isAnalyzingPhoto ? '#ccc' : '#6c757d',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 16px',
+                        borderRadius: '4px',
+                        cursor: isAnalyzingPhoto ? 'not-allowed' : 'pointer',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                      }}
+                      title="Clear and upload new photo"
+                    >
+                      <RotateCcw size={20} />
+                    </button>
+                  </div>
                 )}
                 {photoAnalysisResult && (
                   <div style={{ marginTop: '15px', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0', textAlign: 'left' }}>
@@ -307,7 +402,6 @@ export default function BharatnatyamMudraWebsite() {
               </div>
             </div>
 
-            {/* Quick Features */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
               <div style={{ backgroundColor: 'rgba(255,255,255,0.9)', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
                 <Bed size={32} style={{ color: '#B76E79', marginBottom: '10px' }} />
@@ -382,11 +476,10 @@ export default function BharatnatyamMudraWebsite() {
         )}
 
         {currentPage === 'upload' && (
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.9)', padding: '30px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ color: '#B76E79', marginBottom: '30px' }}>📹 Upload Video for Analysis</h2>
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.9)', padding: '30px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', maxWidth: '1200px', margin: '0 auto' }}>
+            <h2 style={{ color: '#B76E79', marginBottom: '30px', textAlign: 'center' }}>📹 Upload Video for Analysis</h2>
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
-              {/* Upload Section */}
               <div>
                 <h3 style={{ color: '#B76E79', marginBottom: '15px' }}>Upload Your Video</h3>
                 <div style={{
@@ -401,7 +494,29 @@ export default function BharatnatyamMudraWebsite() {
                   backgroundColor: '#fafafa',
                   overflow: 'hidden'
                 }}>
-                  {uploadedVideo ? (
+                  {isCameraActive ? (
+                    <div style={{ width: '100%', position: 'relative' }}>
+                      <video
+                        ref={cameraRef}
+                        autoPlay
+                        playsInline
+                        style={{ width: '100%', maxHeight: '300px', borderRadius: '8px' }}
+                      />
+                      <div style={{ 
+                        position: 'absolute', 
+                        top: '10px', 
+                        right: '10px', 
+                        backgroundColor: isRecording ? '#dc3545' : '#28a745',
+                        color: 'white',
+                        padding: '5px 10px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        {isRecording ? '● Recording' : '● Live'}
+                      </div>
+                    </div>
+                  ) : uploadedVideo ? (
                     <div style={{ width: '100%', position: 'relative' }}>
                       <video
                         ref={videoRef}
@@ -432,46 +547,139 @@ export default function BharatnatyamMudraWebsite() {
                       <p style={{ color: '#ccc', fontSize: '12px' }}>or click to browse</p>
                     </div>
                   )}
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={handleVideoUpload}
-                    style={{
-                      position: 'absolute',
-                      width: '100%',
-                      height: '100%',
-                      opacity: '0',
-                      cursor: 'pointer'
-                    }}
-                  />
+                  {!isCameraActive && !uploadedVideo && (
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideoUpload}
+                      style={{
+                        position: 'absolute',
+                        width: '100%',
+                        height: '100%',
+                        opacity: '0',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  )}
                 </div>
+
+                {!uploadedVideo && (
+                <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                    {!isCameraActive ? (
+                    <button
+                        onClick={startCamera}
+                        style={{
+                        flex: 1,
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        border: 'none',
+                        padding: '12px 16px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                        }}
+                    >
+                        <Video size={20} /> Start Camera
+                    </button>
+                    ) : (
+                    <>
+                        {!isRecording ? (
+                        <>
+                            <button 
+                            onClick={startRecording}
+                            style={{
+                                flex: 1,
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                padding: '12px 16px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px'
+                            }}
+                            >
+                            <Play size={20} /> Start Recording
+                            </button>
+                            <button
+                            onClick={stopCamera}
+                            style={{
+                                backgroundColor: '#6c757d',
+                                color: 'white',
+                                border: 'none',
+                                padding: '12px 16px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '16px',
+                                fontWeight: 'bold'
+                            }}
+                            >
+                            Close
+                            </button>
+                        </>
+                        ) : (
+                        <button
+                            onClick={stopRecording}
+                            style={{
+                            flex: 1,
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            padding: '12px 16px',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '16px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
+                            }}
+                        >
+                            <Pause size={20} /> Stop Recording
+                        </button>
+                        )}
+                    </>
+                    )}
+                </div>
+                )}
+
                 {uploadedVideo && (
-                  <button
+                <button
                     onClick={analyzeVideo}
                     disabled={isAnalyzing}
                     style={{
-                      marginTop: '20px',
-                      width: '100%',
-                      backgroundColor: isAnalyzing ? '#ccc' : '#B76E79',
-                      color: 'white',
-                      border: 'none',
-                      padding: '12px 16px',
-                      borderRadius: '4px',
-                      cursor: isAnalyzing ? 'not-allowed' : 'pointer',
-                      fontSize: '16px',
-                      fontWeight: 'bold',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '10px'
+                    marginTop: '20px',
+                    width: '100%',
+                    backgroundColor: isAnalyzing ? '#ccc' : '#B76E79',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 16px',
+                    borderRadius: '4px',
+                    cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px'
                     }}
-                  >
+                >
                     <Zap size={20} /> {isAnalyzing ? `Analyzing... ${videoProgress}%` : 'Analyze Video'}
-                  </button>
+                </button>
                 )}
+
               </div>
 
-              {/* Results Section */}
               <div>
                 <h3 style={{ color: '#B76E79', marginBottom: '15px' }}>Analysis Results</h3>
                 {isAnalyzing && (
@@ -578,10 +786,9 @@ export default function BharatnatyamMudraWebsite() {
             </div>
           </div>
         )}
-      </main>
-
-      {/* Footer */}
-      <footer style={{ backgroundColor: '#B76E79', color: 'white', padding: '20px', textAlign: 'center', boxShadow: '0 -4px 6px rgba(0,0,0,0.1)' }}>
+        </main>
+        
+      <footer style={{ backgroundColor: '#B76E79', color: 'white', padding: '3px', textAlign: 'center', boxShadow: '0 -4px 6px rgba(0,0,0,0.1)' }}>
         <p style={{ margin: '0', fontSize: '14px' }}>© 2024 Bharatnatyam Mudra Analysis Platform | Preserving Cultural Heritage through AI</p>
         <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', gap: '20px', fontSize: '12px' }}>
           <span style={{ cursor: 'pointer' }}>About</span>
