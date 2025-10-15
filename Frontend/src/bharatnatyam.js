@@ -23,13 +23,6 @@ export default function BharatnatyamMudraWebsite() {
   const cameraRef = useRef(null);
   const streamRef = useRef(null);
 
-
-  // Add mode: 'cors' to your fetch
-fetch('https://hastash-backend.onrender.com/predict', {
-  method: 'POST',
-  mode: 'cors', // Add this
-})
-
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
