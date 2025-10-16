@@ -9,29 +9,22 @@ import traceback
 
 app = Flask(__name__)
 
-# CRITICAL FIX #1: Explicit CORS configuration for production
+# Optimized CORS configuration - handles all scenarios
 CORS(app, resources={
     r"/*": {
-        "origins": "*",
+        "origins": "*",  # For production, replace with specific domains like ["https://yourdomain.com"]
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"],
+        "allow_headers": ["Content-Type", "Authorization"],
         "expose_headers": ["Content-Type"],
-        "supports_credentials": False
+        "supports_credentials": False,
+        "max_age": 3600  # Cache preflight requests for 1 hour
     }
 })
 
-# Alternative: If above doesn't work, use after_request
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-    return response
-
-# CRITICAL FIX #2: Set file upload size limit
+# File upload size limit
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
 
-# CRITICAL FIX #3: Error handling for model loading
+# Model loading with error handling
 print("Loading model and label encoder...")
 try:
     model = load_model("hasta_mudra_classifier.h5")
@@ -68,10 +61,9 @@ def home():
         'models_loaded': MODELS_LOADED
     })
 
-# CRITICAL FIX #4: Handle OPTIONS method for CORS preflight
 @app.route('/predict', methods=['POST', 'OPTIONS'])
 def predict():
-    # Handle preflight request
+    # Handle preflight request (automatically handled by Flask-CORS, but explicit for clarity)
     if request.method == 'OPTIONS':
         return '', 204
     
@@ -79,7 +71,7 @@ def predict():
     print("PREDICT ENDPOINT CALLED")
     print("="*50)
     
-    # CRITICAL FIX #5: Check if models loaded
+    # Check if models loaded
     if not MODELS_LOADED:
         return jsonify({'error': 'Models not loaded'}), 500
     
@@ -99,10 +91,10 @@ def predict():
         print("ERROR: Empty filename")
         return jsonify({'error': 'No file selected'}), 400
     
-    # CRITICAL FIX #6: Validate file type
+    # Validate file type
     allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
     if '.' not in file.filename or file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
-        return jsonify({'error': 'Invalid file type'}), 400
+        return jsonify({'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif, bmp'}), 400
     
     # Save file temporarily
     filepath = os.path.join("uploads", file.filename)
@@ -119,7 +111,7 @@ def predict():
         
         result = {
             'mudra': label,
-            'label': label,  # Add both for frontend compatibility
+            'label': label,
             'confidence': round(confidence, 2)
         }
         print(f"Returning result: {result}")
@@ -154,16 +146,14 @@ if __name__ == "__main__":
     is_production = os.environ.get("PORT") is not None
     
     if is_production:
-        # Production: Use Gunicorn (set in Render start command)
         print("Production mode - Use 'gunicorn app:app' as start command")
         print(f"Server will run on port {port}")
     else:
-        # Development: Use Flask built-in server
         print("Development mode - Running Flask development server")
         print(f"Server starting on http://localhost:{port}")
         print("WARNING: For production, use Gunicorn instead!")
     
     print("="*50 + "\n")
     
-    # This runs only in development (when running python app.py directly)
+    # This runs only in development
     app.run(host="0.0.0.0", port=port, debug=False)
