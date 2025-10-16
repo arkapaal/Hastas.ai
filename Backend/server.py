@@ -9,17 +9,33 @@ import traceback
 
 app = Flask(__name__)
 
-# Optimized CORS configuration - handles all scenarios
+# Optimized CORS configuration - explicitly allow your Vercel domain
 CORS(app, resources={
     r"/*": {
-        "origins": "*",  # For production, replace with specific domains like ["https://yourdomain.com"]
+        "origins": ["https://hastas-ai-a4zo.vercel.app", "http://localhost:3000", "http://localhost:5000"],
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "expose_headers": ["Content-Type"],
         "supports_credentials": False,
-        "max_age": 3600  # Cache preflight requests for 1 hour
+        "max_age": 3600
     }
 })
+
+# Fallback CORS headers to ensure they're present even on error responses
+@app.after_request
+def after_request(response):
+    origin = request.headers.get('Origin')
+    allowed_origins = ['https://hastas-ai-a4zo.vercel.app', 'http://localhost:3000']
+    
+    if origin in allowed_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+    else:
+        response.headers['Access-Control-Allow-Origin'] = 'https://hastas-ai-a4zo.vercel.app'
+    
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS'
+    response.headers['Access-Control-Allow-Credentials'] = 'false'
+    return response
 
 # File upload size limit
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
@@ -58,8 +74,17 @@ def home():
     return jsonify({
         'status': 'running',
         'message': 'Bharatnatyam Mudra Classifier API',
-        'models_loaded': MODELS_LOADED
+        'models_loaded': MODELS_LOADED,
+        'cors_enabled': True,
+        'allowed_origins': ['https://hastas-ai-a4zo.vercel.app']
     })
+
+@app.route('/health')
+def health():
+    return jsonify({
+        'status': 'healthy',
+        'models_loaded': MODELS_LOADED
+    }), 200
 
 @app.route('/predict', methods=['POST', 'OPTIONS'])
 def predict():

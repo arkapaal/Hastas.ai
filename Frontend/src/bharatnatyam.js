@@ -45,47 +45,52 @@ export default function BharatnatyamMudraWebsite() {
   };
 
   const analyzePhoto = async () => {
-    if (!uploadedPhotoFile) {
-      console.error('No file selected');
-      return;
-    }
+  if (!uploadedPhotoFile) {
+    console.error('No file selected');
+    return;
+  }
 
-    setIsAnalyzingPhoto(true);
-    setPhotoAnalysisResult(null);
+  setIsAnalyzingPhoto(true);
+  setPhotoAnalysisResult(null);
 
-    try {
-      const formData = new FormData();
-      formData.append('file', uploadedPhotoFile);
+  try {
+    const formData = new FormData();
+    formData.append('file', uploadedPhotoFile);
 
-      console.log('Sending file:', uploadedPhotoFile.name);
-      console.log('File size:', uploadedPhotoFile.size);
-      console.log('File type:', uploadedPhotoFile.type);
+    console.log('Sending to backend...');
 
-      const res = await fetch('https://hastash-backend.onrender.com/predict', {
-        method: 'POST',
-        body: formData,
-      });
+    const res = await fetch('https://hastash-backend.onrender.com/predict', {
+      method: 'POST',
+      body: formData,
+      mode: 'cors', // Explicitly set CORS mode
+    });
 
-      console.log('Response status:', res.status);
+    console.log('Response status:', res.status);
 
-      if (!res.ok) {
+    if (!res.ok) {
+      let errorMessage = `Server error: ${res.status}`;
+      try {
         const errorData = await res.json();
-        console.error('Error response:', errorData);
-        throw new Error(errorData.error || `Server error: ${res.status}`);
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // If response is not JSON (like 502 HTML error page)
+        errorMessage = 'Server is not responding. Please try again later.';
       }
-
-      const data = await res.json();
-      console.log('Analysis result:', data);
-      setPhotoAnalysisResult(data);
-    } catch (error) {
-      console.error('Error analyzing photo:', error);
-      setPhotoAnalysisResult({ 
-        error: `Failed to analyze photo: ${error.message}` 
-      });
-    } finally {
-      setIsAnalyzingPhoto(false);
+      throw new Error(errorMessage);
     }
-  };
+
+    const data = await res.json();
+    console.log('Analysis result:', data);
+    setPhotoAnalysisResult(data);
+  } catch (error) {
+    console.error('Error analyzing photo:', error);
+    setPhotoAnalysisResult({ 
+      error: error.message || 'Failed to connect to server'
+    });
+  } finally {
+    setIsAnalyzingPhoto(false);
+  }
+};
 
   const handleVideoUpload = (e) => {
     const file = e.target.files[0];
