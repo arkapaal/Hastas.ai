@@ -9,8 +9,24 @@ import traceback
 
 app = Flask(__name__)
 
-# CRITICAL FIX #1: Proper CORS configuration
-CORS(app)
+# CRITICAL FIX #1: Explicit CORS configuration for production
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"],
+        "expose_headers": ["Content-Type"],
+        "supports_credentials": False
+    }
+})
+
+# Alternative: If above doesn't work, use after_request
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    return response
 
 # CRITICAL FIX #2: Set file upload size limit
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
@@ -132,10 +148,22 @@ if __name__ == "__main__":
     print("STARTING FLASK SERVER")
     print("="*50)
     
-    # CRITICAL FIX #7: Use environment PORT and bind to 0.0.0.0
     port = int(os.environ.get("PORT", 5000))
-    print(f"Server starting on port {port}...")
+    
+    # Check if running in production (Render sets PORT env variable)
+    is_production = os.environ.get("PORT") is not None
+    
+    if is_production:
+        # Production: Use Gunicorn (set in Render start command)
+        print("Production mode - Use 'gunicorn app:app' as start command")
+        print(f"Server will run on port {port}")
+    else:
+        # Development: Use Flask built-in server
+        print("Development mode - Running Flask development server")
+        print(f"Server starting on http://localhost:{port}")
+        print("WARNING: For production, use Gunicorn instead!")
+    
     print("="*50 + "\n")
     
-    # MUST use 0.0.0.0 for Render, NOT 127.0.0.1
+    # This runs only in development (when running python app.py directly)
     app.run(host="0.0.0.0", port=port, debug=False)
